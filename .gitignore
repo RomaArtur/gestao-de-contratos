@@ -1,0 +1,34 @@
+# dependências
+node_modules/
+
+# ambiente e segredos
+.env
+.env.*
+!.env.example
+
+# build e testes
+dist/
+.next/
+out/
+build/
+coverage/
+*.tsbuildinfo
+
+# arquivos enviados pela API
+uploads/
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# sistema
+.DS_Store
+Thumbs.db
+
+# editores
+.idea/
+.vscode/
+*.swp
