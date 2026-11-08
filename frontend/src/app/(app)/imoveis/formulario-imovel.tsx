@@ -13,6 +13,8 @@ import { CampoNumero } from "@/components/ui/campo-numero";
 import { Confirmar } from "@/components/ui/confirmar";
 import { Indicador } from "@/components/ui/indicador";
 import { finalidades, situacoes, tiposImovel } from "@/lib/labels";
+
+const situacoesDeFluxo = new Set(["EM_NEGOCIACAO", "RESERVADO", "ALUGADO", "VENDIDO"]);
 import { excluirImovel, salvarImovel, type DadosImovel } from "./actions";
 
 const schema = z
@@ -88,6 +90,10 @@ export function FormularioImovel({
     watch,
     formState: { errors, isSubmitting },
   } = useForm<ValoresFormulario>({ resolver: zodResolver(schema), defaultValues: valoresIniciais });
+  const situacaoBloqueada = situacoesDeFluxo.has(valoresIniciais.situacao);
+  const opcoesSituacao = situacaoBloqueada
+    ? situacoes.filter(([valorOpcao]) => valorOpcao === valoresIniciais.situacao)
+    : situacoes.filter(([valorOpcao]) => valorOpcao === "DISPONIVEL" || valorOpcao === "INATIVO");
 
   async function aoEnviar(valores: ValoresFormulario) {
     setErroServidor(null);
@@ -119,7 +125,7 @@ export function FormularioImovel({
   return (
     <form className="flex max-w-3xl flex-col gap-4" onSubmit={handleSubmit(aoEnviar)}>
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Código" error={errors.codigo?.message}>
+        <Field label="Código do Imóvel" error={errors.codigo?.message}>
           <Input disabled={somenteLeitura} {...register("codigo")} />
         </Field>
         <CampoLista
@@ -140,11 +146,16 @@ export function FormularioImovel({
             {finalidades.map(([valorOpcao, rotulo]) => <option key={valorOpcao} value={valorOpcao}>{rotulo}</option>)}
           </select>
         </Field>
-        <Field label="Status" htmlFor="situacao" error={errors.situacao?.message}>
-          <select id="situacao" className={controlClass} disabled={somenteLeitura} {...register("situacao")}>
-            {situacoes.map(([valorOpcao, rotulo]) => <option key={valorOpcao} value={valorOpcao}>{rotulo}</option>)}
-          </select>
-        </Field>
+        <div className="flex flex-col gap-1">
+          <Field label="Status" htmlFor="situacao" error={errors.situacao?.message}>
+            <select id="situacao" className={controlClass} disabled={somenteLeitura} {...register("situacao")}>
+              {opcoesSituacao.map(([valorOpcao, rotulo]) => <option key={valorOpcao} value={valorOpcao}>{rotulo}</option>)}
+            </select>
+          </Field>
+          {situacaoBloqueada ? (
+            <p className="text-sm text-muted">Definida pela proposta ou pelo contrato.</p>
+          ) : null}
+        </div>
         <CampoNumero rotulo="Área (m²)" valor={numero(watch("area"))} erro={errors.area?.message} desabilitado={somenteLeitura} aoMudar={(valor) => setValue("area", String(valor), { shouldValidate: true })} />
         <CampoNumero rotulo="Quartos" valor={numero(watch("quartos"))} erro={errors.quartos?.message} desabilitado={somenteLeitura} aoMudar={(valor) => setValue("quartos", String(valor))} />
         <CampoNumero rotulo="Banheiros" valor={numero(watch("banheiros"))} erro={errors.banheiros?.message} desabilitado={somenteLeitura} aoMudar={(valor) => setValue("banheiros", String(valor))} />

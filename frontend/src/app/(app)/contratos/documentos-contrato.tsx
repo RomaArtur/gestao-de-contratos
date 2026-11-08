@@ -30,10 +30,46 @@ export function DocumentosContrato({
 
   return (
     <section className="flex max-w-3xl flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-sm font-medium">Arquivos</h2>
+        {somenteLeitura ? null : (
+          <Modal>
+            <Modal.Trigger className={buttonVariants({ variant: "outline" })}>Enviar</Modal.Trigger>
+            <Modal.Backdrop>
+              <Modal.Container>
+                <Modal.Dialog>
+                  <Modal.CloseTrigger />
+                  <Modal.Header>
+                    <Modal.Heading>Documento</Modal.Heading>
+                  </Modal.Header>
+                  <form action={enviar}>
+                    <Modal.Body className="flex flex-col gap-3">
+                      <select name="categoria" className="input input--primary h-10" defaultValue="MINUTA">
+                        {categoriasDocumentoContrato.map(([valor, rotulo]) => (
+                          <option key={valor} value={valor}>
+                            {rotulo}
+                          </option>
+                        ))}
+                      </select>
+                      <input name="file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" required />
+                    </Modal.Body>
+                    <Modal.Footer>
+                      <Button slot="close" type="submit">
+                        Enviar
+                      </Button>
+                    </Modal.Footer>
+                  </form>
+                </Modal.Dialog>
+              </Modal.Container>
+            </Modal.Backdrop>
+          </Modal>
+        )}
+      </div>
       <ul className="flex flex-col gap-2 text-sm">
+        {documentos.length === 0 ? <li className="text-muted">Nenhum documento enviado.</li> : null}
         {documentos.map((documento) => (
-          <li key={documento.id} className="flex flex-wrap items-center gap-3">
-            <Link href={fileUrl(documento.url) ?? "#"} target="_blank">
+          <li key={documento.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-border px-3 py-2">
+            <Link className="min-w-0 truncate" href={fileUrl(documento.url) ?? "#"} target="_blank">
               {rotuloDe(categoriasDocumentoContrato, documento.categoria)} · {documento.nomeOriginal}
             </Link>
             {somenteLeitura ? null : (
@@ -47,38 +83,6 @@ export function DocumentosContrato({
           </li>
         ))}
       </ul>
-      {somenteLeitura ? null : (
-        <Modal>
-          <Modal.Trigger className={buttonVariants({ variant: "outline" })}>Enviar</Modal.Trigger>
-          <Modal.Backdrop>
-            <Modal.Container>
-              <Modal.Dialog>
-                <Modal.CloseTrigger />
-                <Modal.Header>
-                  <Modal.Heading>Documento</Modal.Heading>
-                </Modal.Header>
-                <form action={enviar}>
-                  <Modal.Body className="flex flex-col gap-3">
-                    <select name="categoria" className="input input--primary h-10" defaultValue="MINUTA">
-                      {categoriasDocumentoContrato.map(([valor, rotulo]) => (
-                        <option key={valor} value={valor}>
-                          {rotulo}
-                        </option>
-                      ))}
-                    </select>
-                    <input name="file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" required />
-                  </Modal.Body>
-                  <Modal.Footer>
-                    <Button slot="close" type="submit">
-                      Enviar
-                    </Button>
-                  </Modal.Footer>
-                </form>
-              </Modal.Dialog>
-            </Modal.Container>
-          </Modal.Backdrop>
-        </Modal>
-      )}
       {erro ? <p className="text-sm text-danger">{erro}</p> : null}
     </section>
   );

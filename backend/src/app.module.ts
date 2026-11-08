@@ -13,10 +13,14 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 import { CryptoModule } from './common/crypto/crypto.module.js';
 import { validateEnv } from './config/env.js';
 import { DatabaseModule } from './database/database.module.js';
+import { EmailModule } from './email/email.module.js';
 import { HealthModule } from './health/health.module.js';
 import { ImovelModule } from './imoveis/imovel.module.js';
 import { ProprietarioModule } from './proprietarios/proprietario.module.js';
+import { AgendaModule } from './agenda/agenda.module.js';
 import { ContratoModule } from './contratos/contrato.module.js';
+import { FormaPagamentoModule } from './formas-pagamento/forma-pagamento.module.js';
+import { PainelModule } from './painel/painel.module.js';
 import { PropostaModule } from './propostas/proposta.module.js';
 
 @Module({
@@ -43,6 +47,7 @@ import { PropostaModule } from './propostas/proposta.module.js';
       throttlers: [{ name: 'default', ttl: 60_000, limit: 100 }],
     }),
     DatabaseModule,
+    EmailModule,
     AuditModule,
     CryptoModule,
     ArquivosModule,
@@ -50,8 +55,11 @@ import { PropostaModule } from './propostas/proposta.module.js';
     ProprietarioModule,
     ClienteModule,
     ImovelModule,
+    FormaPagamentoModule,
     PropostaModule,
     ContratoModule,
+    AgendaModule,
+    PainelModule,
     HealthModule,
   ],
   providers: [

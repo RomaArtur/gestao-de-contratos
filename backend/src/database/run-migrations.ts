@@ -1,4 +1,6 @@
 import { DataTypes, QueryTypes, type Sequelize } from 'sequelize';
+import * as documentoMigration from './migration-007.js';
+import * as operacaoMigration from './migration-006.js';
 import * as catalogMigration from './migration-002.js';
 import * as dominioMigration from './migration-003.js';
 import * as contratoMigration from './migration-005.js';
@@ -11,6 +13,8 @@ const MIGRATIONS = [
   { name: '003-dominio-pt', up: dominioMigration.up },
   { name: '004-propostas', up: propostaMigration.up },
   { name: '005-contratos', up: contratoMigration.up },
+  { name: '006-agenda-pagamento', up: operacaoMigration.up },
+  { name: '007-documento-contrato', up: documentoMigration.up },
 ];
 
 function tableNames(tables: unknown[]): string[] {

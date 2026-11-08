@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { AuditWriter } from '../audit/audit-entry.js';
+import { registrarAuditoria } from '../audit/registrar.js';
 import { ArquivoAdapter } from '../arquivos/arquivo.adapter.js';
 import { rethrowConstraint } from '../common/sequelize-errors.js';
 import type { Ator } from '../comum/ator.js';
@@ -10,6 +11,7 @@ import {
   Imovel,
 } from '../database/entidades-catalogo.js';
 import { ImovelRepository } from './imovel.repository.js';
+import { situacaoDeCadastro } from './situacao-imovel.js';
 import type {
   CategoriaDocumentoDto,
   DadosImovel,
@@ -72,7 +74,7 @@ export class ImovelService {
     const anterior = this.resumo(imovel);
     await this.garantirProprietario(dados.proprietarioId);
     try {
-      await this.imoveis.atualizar(imovel, this.colunas(dados));
+      await this.imoveis.atualizar(imovel, this.colunas(dados, imovel.situacao));
     } catch (error) {
       rethrowConstraint(error, 'Já existe um imóvel com este código.');
     }
@@ -87,7 +89,15 @@ export class ImovelService {
       ...(imovel.fotos ?? []).map((foto) => foto.chaveArquivo),
       ...(imovel.documentos ?? []).map((documento) => documento.chaveArquivo),
     ];
-    await this.imoveis.excluir(imovel);
+    try {
+      await this.imoveis.excluir(imovel);
+    } catch (error) {
+      rethrowConstraint(
+        error,
+        'Não foi possível excluir o imóvel.',
+        'Este imóvel está vinculado a propostas, contratos ou eventos.',
+      );
+    }
     await Promise.all(chaves.map((chave) => this.arquivos.remover(chave)));
     await this.auditar(ator, 'IMOVEL_EXCLUIDO', id, anterior, null);
   }
@@ -196,13 +206,13 @@ export class ImovelService {
     } as const;
   }
 
-  private colunas(dados: DadosImovel) {
+  private colunas(dados: DadosImovel, situacaoAtual?: string) {
     return {
       codigo: dados.codigo,
       proprietarioId: dados.proprietarioId,
       tipo: dados.tipo,
       finalidade: dados.finalidade,
-      situacao: dados.situacao,
+      situacao: situacaoDeCadastro(dados.situacao, situacaoAtual),
       area: dados.area,
       quartos: dados.quartos,
       banheiros: dados.banheiros,
@@ -324,15 +334,6 @@ export class ImovelService {
     oldValues: Record<string, unknown> | null,
     newValues: Record<string, unknown> | null,
   ) {
-    return this.audit.record({
-      userId: ator.usuarioId,
-      action,
-      entity: 'Imovel',
-      entityId,
-      oldValues,
-      newValues,
-      ip: ator.ip ?? null,
-      userAgent: ator.userAgent ?? null,
-    });
+    return registrarAuditoria(this.audit, ator, action, 'Imovel', entityId, oldValues, newValues);
   }
 }

@@ -32,5 +32,6 @@ import { SequelizeAuthStore } from './sequelize-auth.store.js';
     RolesGuard,
     { provide: AuthStore, useClass: SequelizeAuthStore },
   ],
+  exports: [RolesGuard],
 })
 export class AuthModule {}

@@ -3,9 +3,15 @@
 import type { ReactNode } from "react";
 import { Tabs } from "@heroui/react";
 
-export function Abas({ itens }: { itens: { id: string; titulo: string; conteudo: ReactNode }[] }) {
+export function Abas({
+  itens,
+  selecionada,
+}: {
+  itens: { id: string; titulo: string; conteudo: ReactNode }[];
+  selecionada?: string;
+}) {
   return (
-    <Tabs className="w-full" variant="secondary">
+    <Tabs className="w-full" variant="secondary" defaultSelectedKey={selecionada ?? itens[0]?.id}>
       <Tabs.ListContainer>
         <Tabs.List aria-label="Seções">
           {itens.map((item) => (

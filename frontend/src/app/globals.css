@@ -1,1 +1,119 @@
 @import "@heroui/styles";
+
+html,
+body {
+  font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Amarelo e preto da logo Sacramento. Os tons derivados (hover, foco, destaque suave)
+   acompanham --accent. */
+:root {
+  --accent: oklch(0.84 0.17 90);
+  --accent-foreground: oklch(0.18 0 0);
+}
+
+/* Botões e abas acompanham o texto. Sem isso, o controle estica e o rótulo
+   vai para o meio da área livre. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  width: fit-content;
+  max-width: 100%;
+  flex: none;
+}
+
+.tabs__tab {
+  width: auto;
+  flex: none;
+  justify-content: flex-start;
+  text-align: start;
+}
+
+/* Mesmo recuo em todas as telas. Listas, painel e formulários não mudam
+   a relação entre a margem lateral e a de cima. */
+.pagina {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 2rem;
+  animation: entrada 0.35s ease-out both;
+}
+
+@keyframes entrada {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pagina {
+    animation: none;
+  }
+}
+
+.tabs__panel {
+  margin-top: 1.5rem;
+  padding: 0;
+}
+
+.table__column {
+  background-color: #000;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.table__column::after {
+  content: none;
+}
+
+.coluna-acoes {
+  width: 1%;
+  text-align: end;
+  white-space: nowrap;
+}
+
+/* Mesma espessura de erro em Input do HeroUI e em input nativo.
+   O campo focado não ganha um anel extra. */
+.input[data-invalid="true"],
+[data-invalid="true"] > .input {
+  outline: 1px solid var(--danger);
+  outline-offset: 0;
+  box-shadow: var(--field-shadow);
+  border-color: transparent;
+  background-color: var(--field-focus);
+}
+
+.documento h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.documento h2 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 1rem 0 0.35rem;
+}
+
+.documento p {
+  margin: 0.25rem 0;
+  line-height: 1.5;
+}
+
+.documento ul,
+.documento ol {
+  margin: 0.4rem 0 0.4rem 1.25rem;
+}
+
+@media print {
+  .nao-imprimir {
+    display: none;
+  }
+}

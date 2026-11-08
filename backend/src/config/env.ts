@@ -33,6 +33,8 @@ export const envSchema = z
     SEED_ADMIN_NAME: optionalText,
     SEED_ADMIN_EMAIL: optionalText,
     SEED_ADMIN_PASSWORD: optionalText,
+    GMAIL_USER: optionalText,
+    GMAIL_APP_PASSWORD: optionalText,
   })
   .superRefine((value, ctx) => {
     const hasEmail = Boolean(value.SEED_ADMIN_EMAIL);
@@ -61,6 +63,22 @@ export const envSchema = z
         message: 'SEED_ADMIN_EMAIL inválido.',
         path: ['SEED_ADMIN_EMAIL'],
       });
+    }
+    if (value.NODE_ENV !== 'test') {
+      if (!value.GMAIL_USER || !z.email().safeParse(value.GMAIL_USER).success) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'GMAIL_USER deve ser o endereço Gmail que envia.',
+          path: ['GMAIL_USER'],
+        });
+      }
+      if (!value.GMAIL_APP_PASSWORD || value.GMAIL_APP_PASSWORD.replace(/\s/g, '').length < 16) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'GMAIL_APP_PASSWORD deve ser a senha de app do Google (16 caracteres).',
+          path: ['GMAIL_APP_PASSWORD'],
+        });
+      }
     }
   });
 

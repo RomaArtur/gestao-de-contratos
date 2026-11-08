@@ -17,7 +17,7 @@ export function Tabela({
           <Table.Content aria-label={rotulo}>
             <Table.Header>
               {colunas.map((coluna, index) => (
-                <Table.Column key={coluna} isRowHeader={index === 0}>
+                <Table.Column key={coluna} isRowHeader={index === 0} className={coluna === "Ações" ? "coluna-acoes" : undefined}>
                   {coluna}
                 </Table.Column>
               ))}
@@ -33,7 +33,9 @@ export function Tabela({
                 linhas.map((linha) => (
                   <Table.Row key={linha.id} id={linha.id}>
                     {linha.celulas.map((celula, index) => (
-                      <Table.Cell key={`${linha.id}-${index}`}>{celula}</Table.Cell>
+                      <Table.Cell key={`${linha.id}-${index}`} className={colunas[index] === "Ações" ? "coluna-acoes" : undefined}>
+                        {celula}
+                      </Table.Cell>
                     ))}
                   </Table.Row>
                 ))

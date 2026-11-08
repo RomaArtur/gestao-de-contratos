@@ -19,6 +19,9 @@ const schema = z.object({
   valor: z.coerce.number().positive("Informe o valor."),
   condicoes: z.string().optional(),
   validade: z.string().optional(),
+  formaPagamentoId: z.string().optional(),
+  entrada: z.number().nullable().optional(),
+  parcelas: z.number().nullable().optional(),
 });
 
 type ValoresFormulario = z.infer<typeof schema>;
@@ -30,12 +33,14 @@ export function FormularioProposta({
   somenteLeitura,
   imoveis,
   clientes,
+  formas,
   valoresIniciais,
 }: {
   propostaId?: string;
   somenteLeitura?: boolean;
   imoveis: Opcao[];
   clientes: Opcao[];
+  formas: Opcao[];
   valoresIniciais: ValoresFormulario;
 }) {
   const [erroServidor, setErroServidor] = useState<string | null>(null);
@@ -56,6 +61,9 @@ export function FormularioProposta({
       valor: Number(valores.valor),
       condicoes: valores.condicoes,
       validade: valores.validade || undefined,
+      formaPagamentoId: valores.formaPagamentoId || "",
+      entrada: valores.entrada && valores.entrada > 0 ? valores.entrada : null,
+      parcelas: valores.parcelas && valores.parcelas >= 1 ? Math.trunc(valores.parcelas) : null,
     };
     const resultado = await salvarProposta(propostaId ?? null, dados);
     if (resultado?.error) setErroServidor(resultado.error);
@@ -114,6 +122,27 @@ export function FormularioProposta({
           erro={errors.valor?.message}
           desabilitado={somenteLeitura}
           aoMudar={(valor) => setValue("valor", valor, { shouldValidate: true })}
+        />
+        <CampoLista
+          rotulo="Forma de pagamento"
+          itens={formas}
+          valor={watch("formaPagamentoId")}
+          erro={errors.formaPagamentoId?.message}
+          desabilitado={somenteLeitura}
+          aoMudar={(valor) => setValue("formaPagamentoId", valor, { shouldValidate: true })}
+        />
+        <CampoNumero
+          rotulo="Entrada"
+          moeda
+          valor={watch("entrada")}
+          desabilitado={somenteLeitura}
+          aoMudar={(valor) => setValue("entrada", valor)}
+        />
+        <CampoNumero
+          rotulo="Parcelas"
+          valor={watch("parcelas")}
+          desabilitado={somenteLeitura}
+          aoMudar={(valor) => setValue("parcelas", valor)}
         />
         <CampoData
           rotulo="Validade"

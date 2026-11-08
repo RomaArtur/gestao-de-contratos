@@ -29,11 +29,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const response = await fetch(`${process.env.API_URL}/api/v1/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        });
+        let response: Response;
+        try {
+          response = await fetch(`${process.env.API_URL}/api/v1/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+          });
+        } catch {
+          throw new Error("API_UNAVAILABLE");
+        }
         if (!response.ok) {
           return null;
         }

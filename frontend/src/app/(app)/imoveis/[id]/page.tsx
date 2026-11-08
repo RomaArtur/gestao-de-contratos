@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { api } from "@/lib/api";
+import { api, listarTudo } from "@/lib/api";
 import type { EnderecoFormulario } from "@/lib/endereco";
 import { rotuloDe, situacoes } from "@/lib/labels";
 import { canWrite } from "@/lib/permissions";
@@ -34,12 +34,12 @@ export default async function PaginaImovel({ params }: { params: Promise<{ id: s
   const session = await auth();
   const [imovel, proprietarios] = await Promise.all([
     api<Imovel>(`/imoveis/${id}`),
-    api<{ dados: { id: string; nome: string }[] }>("/proprietarios?tamanhoPagina=200"),
+    listarTudo<{ id: string; nome: string }>("/proprietarios", 200),
   ]);
   const somenteLeitura = !canWrite(session?.user?.role);
 
   return (
-    <main className="flex flex-1 flex-col gap-6 px-8 py-8">
+    <main className="pagina">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">{imovel.codigo}</h1>
         <Etiqueta valor={imovel.situacao} rotulo={rotuloDe(situacoes, imovel.situacao)} />
@@ -53,7 +53,7 @@ export default async function PaginaImovel({ params }: { params: Promise<{ id: s
       <FormularioImovel
         imovelId={imovel.id}
         somenteLeitura={somenteLeitura}
-        proprietarios={proprietarios.dados}
+        proprietarios={proprietarios}
         valoresIniciais={{
           codigo: imovel.codigo,
           proprietarioId: imovel.proprietarioId,

@@ -1,6 +1,3 @@
-import { randomUUID } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
-import { extname, join } from 'node:path';
 import {
   BadRequestException,
   Body,
@@ -19,38 +16,26 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiCreatedResponse, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { diskStorage } from 'multer';
+import { EXTENSOES_DOCUMENTO, TIPOS_DOCUMENTO, aceitarArquivo, destinoUpload } from '../arquivos/upload.js';
 import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { RolesGuard } from '../auth/roles.guard.js';
 import { atorDe } from '../comum/ator.js';
+import { entradaValidada } from '../comum/entrada.js';
 import { ContratoService } from './contrato.service.js';
 import {
   AtualizarContratoDto,
   CategoriaDocumentoContratoDto,
   ContratoDto,
+  DocumentoContratoDto,
   ListarContratosDto,
   MotivoContratoDto,
-  type DadosAtualizacaoContrato,
-  type DadosContrato,
+  atualizarContratoSchema,
+  contratoSchema,
+  documentoContratoSchema,
 } from './contrato.schema.js';
-
-function destinoUpload() {
-  return diskStorage({
-    destination: (_req, _file, callback) => {
-      const diretorio = join(process.cwd(), process.env.UPLOAD_DIR || 'uploads');
-      mkdirSync(diretorio, { recursive: true });
-      callback(null, diretorio);
-    },
-    filename: (_req, file, callback) => {
-      const permitidas = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
-      const extensao = extname(file.originalname).toLowerCase();
-      callback(null, `${randomUUID()}${permitidas.includes(extensao) ? extensao : ''}`);
-    },
-  });
-}
 
 @ApiTags('contratos')
 @ApiBearerAuth()
@@ -77,7 +62,7 @@ export class ContratoController {
     @CurrentUser() usuario: AuthenticatedUser,
     @Req() request: Request,
   ) {
-    return this.contratos.criar(body as unknown as DadosContrato, atorDe(usuario, request));
+    return this.contratos.criar(entradaValidada(contratoSchema, body), atorDe(usuario, request));
   }
 
   @Patch(':id')
@@ -90,7 +75,7 @@ export class ContratoController {
   ) {
     return this.contratos.atualizar(
       id,
-      body as unknown as DadosAtualizacaoContrato,
+      entradaValidada(atualizarContratoSchema, body),
       atorDe(usuario, request),
     );
   }
@@ -104,6 +89,53 @@ export class ContratoController {
     @Req() request: Request,
   ) {
     return this.contratos.excluir(id, atorDe(usuario, request));
+  }
+
+  @Patch(':id/documento')
+  @Roles('ADMIN', 'CORRETOR')
+  salvarDocumento(
+    @Param('id') id: string,
+    @Body() body: DocumentoContratoDto,
+    @CurrentUser() usuario: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    const dados = entradaValidada(documentoContratoSchema, body);
+    return this.contratos.salvarDocumento(id, dados.conteudo, dados.edicaoExplicita, atorDe(usuario, request));
+  }
+
+  @Post(':id/finalizar')
+  @Roles('ADMIN', 'CORRETOR')
+  @ApiCreatedResponse({
+    description:
+      'Contrato finalizado. A resposta inclui emailEnviado e emailDestino. Se o envio falhar, o contrato permanece finalizado.',
+  })
+  finalizar(
+    @Param('id') id: string,
+    @CurrentUser() usuario: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.contratos.finalizar(id, atorDe(usuario, request));
+  }
+
+  @Post(':id/reenviar')
+  @Roles('ADMIN', 'CORRETOR')
+  @ApiCreatedResponse({
+    description: 'E-mail enviado ao contato. O reenvio só é registrado depois que o envio é aceito.',
+    schema: {
+      type: 'object',
+      required: ['email', 'emailEnviado'],
+      properties: {
+        email: { type: 'string', format: 'email' },
+        emailEnviado: { type: 'boolean' },
+      },
+    },
+  })
+  reenviar(
+    @Param('id') id: string,
+    @CurrentUser() usuario: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.contratos.reenviar(id, atorDe(usuario, request));
   }
 
   @Post(':id/ativar')
@@ -151,20 +183,9 @@ export class ContratoController {
   })
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: destinoUpload(),
+      storage: destinoUpload(EXTENSOES_DOCUMENTO),
       limits: { fileSize: 10 * 1024 * 1024 },
-      fileFilter: (
-        _req,
-        file: { mimetype: string },
-        callback: (error: Error | null, aceito: boolean) => void,
-      ) => {
-        const tipos = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
-        if (!tipos.includes(file.mimetype)) {
-          callback(new BadRequestException('Envie um PDF ou imagem de até 10 MB.'), false);
-          return;
-        }
-        callback(null, true);
-      },
+      fileFilter: aceitarArquivo(TIPOS_DOCUMENTO, 'Envie um PDF ou imagem de até 10 MB.'),
     }),
   )
   adicionarDocumento(

@@ -45,6 +45,25 @@ export const situacoesProposta = [
   ["CANCELADA", "Cancelada"],
 ] as const;
 
+export const tiposEvento = [
+  ["VISITA", "Visita"],
+  ["REUNIAO", "Reunião"],
+  ["ASSINATURA", "Assinatura"],
+  ["VENCIMENTO", "Vencimento"],
+  ["COMPROMISSO", "Compromisso"],
+] as const;
+
+export const situacoesEvento = [
+  ["AGENDADO", "Agendado"],
+  ["CANCELADO", "Cancelado"],
+] as const;
+
+export const recortesContrato = [
+  ["ativos", "Ativos"],
+  ["vencidos", "Vencidos"],
+  ["proximos", "Próximos do vencimento"],
+] as const;
+
 export const situacoesContrato = [
   ["MINUTA", "Minuta"],
   ["VIGENTE", "Vigente"],

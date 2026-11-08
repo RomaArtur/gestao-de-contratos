@@ -1,11 +1,13 @@
 import { auth } from "@/auth";
-import { api } from "@/lib/api";
+import { api, listarTudo } from "@/lib/api";
 import { rotuloDe, situacoesProposta } from "@/lib/labels";
 import { canWrite } from "@/lib/permissions";
 import { Abas } from "@/components/ui/abas";
 import { Etiqueta } from "@/components/ui/etiqueta";
+import { EditorContrato } from "../../contratos/editor-contrato";
 import { AcoesProposta } from "../acoes-proposta";
 import { FormularioProposta } from "../formulario-proposta";
+import { GerarContrato } from "../gerar-contrato";
 
 type Proposta = {
   id: string;
@@ -16,6 +18,10 @@ type Proposta = {
   finalidade: "VENDA" | "ALUGUEL";
   valor: number;
   validade: string | null;
+  entrada: number | null;
+  parcelas: number | null;
+  formaPagamentoId: string | null;
+  contratoId: string | null;
   situacao: string;
   condicoes: string | null;
   motivo: string | null;
@@ -30,26 +36,39 @@ type Proposta = {
   }[];
 };
 
-type Lista = { dados: { id: string; codigo?: string; nome?: string }[] };
+type Cadastro = { id: string; codigo?: string; nome?: string };
+type Forma = { id: string; nome: string; ativo: boolean };
 
-export default async function PaginaProposta({ params }: { params: Promise<{ id: string }> }) {
+export default async function PaginaProposta({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ aba?: string }>;
+}) {
   const { id } = await params;
+  const { aba } = await searchParams;
   const session = await auth();
-  const [proposta, imoveis, clientes] = await Promise.all([
+  const [proposta, imoveis, clientes, formas] = await Promise.all([
     api<Proposta>(`/propostas/${id}`),
-    api<Lista>("/imoveis?tamanhoPagina=100"),
-    api<Lista>("/clientes?tamanhoPagina=100"),
+    listarTudo<Cadastro>("/imoveis"),
+    listarTudo<Cadastro>("/clientes"),
+    api<Forma[]>("/formas-pagamento"),
   ]);
+  const contrato = proposta.contratoId
+    ? await api<{ id: string; codigo: string; conteudo: string | null; situacao: string }>(`/contratos/${proposta.contratoId}`)
+    : null;
   const podeEscrever = canWrite(session?.user?.role);
   const editavel = podeEscrever && proposta.situacao === "RASCUNHO";
 
   return (
-    <main className="flex flex-1 flex-col gap-6 px-8 py-8">
+    <main className="pagina">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">{proposta.codigoImovel}</h1>
         <Etiqueta valor={proposta.situacao} rotulo={rotuloDe(situacoesProposta, proposta.situacao)} />
       </div>
       <Abas
+        selecionada={aba === "contrato" ? "contrato" : aba === "historico" ? "historico" : "dados"}
         itens={[
           {
             id: "dados",
@@ -59,8 +78,11 @@ export default async function PaginaProposta({ params }: { params: Promise<{ id:
                 <FormularioProposta
                   propostaId={proposta.id}
                   somenteLeitura={!editavel}
-                  imoveis={imoveis.dados.map((item) => ({ id: item.id, rotulo: item.codigo ?? item.id }))}
-                  clientes={clientes.dados.map((item) => ({ id: item.id, rotulo: item.nome ?? item.id }))}
+                  imoveis={imoveis.map((item) => ({ id: item.id, rotulo: item.codigo ?? item.id }))}
+                  clientes={clientes.map((item) => ({ id: item.id, rotulo: item.nome ?? item.id }))}
+                  formas={formas
+                    .filter((forma) => forma.ativo || forma.id === proposta.formaPagamentoId)
+                    .map((forma) => ({ id: forma.id, rotulo: forma.ativo ? forma.nome : `${forma.nome} (inativa)` }))}
                   valoresIniciais={{
                     imovelId: proposta.imovelId,
                     clienteId: proposta.clienteId,
@@ -68,11 +90,36 @@ export default async function PaginaProposta({ params }: { params: Promise<{ id:
                     valor: proposta.valor,
                     condicoes: proposta.condicoes ?? "",
                     validade: proposta.validade ?? "",
+                    formaPagamentoId: proposta.formaPagamentoId ?? "",
+                    entrada: proposta.entrada,
+                    parcelas: proposta.parcelas,
                   }}
                 />
                 {podeEscrever ? <AcoesProposta id={proposta.id} situacao={proposta.situacao} /> : null}
               </div>
             ),
+          },
+          {
+            id: "contrato",
+            titulo: "Contrato",
+            conteudo:
+              contrato?.conteudo ? (
+                <EditorContrato
+                  id={contrato.id}
+                  codigo={contrato.codigo}
+                  conteudoInicial={contrato.conteudo}
+                  situacao={contrato.situacao}
+                  podeEscrever={podeEscrever}
+                />
+              ) : podeEscrever && proposta.situacao === "ACEITA" ? (
+                <GerarContrato id={proposta.id} />
+              ) : (
+                <p className="text-sm text-muted">
+                  {proposta.situacao === "RASCUNHO" || proposta.situacao === "ENVIADA"
+                    ? "Aceite a proposta para gerar o contrato."
+                    : "Esta proposta ainda não tem contrato gerado."}
+                </p>
+              ),
           },
           {
             id: "historico",

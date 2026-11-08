@@ -1,5 +1,5 @@
 import { DataTypes, Model, type ModelStatic, type Sequelize } from 'sequelize';
-import { Cliente, Imovel } from './entidades-catalogo.js';
+import { Cliente, FormaPagamento, Imovel } from './entidades-catalogo.js';
 
 export const SITUACOES_PROPOSTA = [
   'RASCUNHO',
@@ -20,7 +20,11 @@ export class Proposta extends Model {
   declare valor: string;
   declare condicoes: string | null;
   declare validade: string | null;
+  declare formaPagamentoId: string | null;
+  declare entrada: string | null;
+  declare parcelas: number | null;
   declare situacao: (typeof SITUACOES_PROPOSTA)[number];
+  declare formaPagamento?: FormaPagamento;
   declare motivo: string | null;
   declare createdAt: Date;
   declare imovel?: Imovel;
@@ -55,6 +59,9 @@ export function initEntidadesProposta(sequelize: Sequelize) {
       valor: { type: DataTypes.DECIMAL(14, 2), allowNull: false },
       condicoes: { type: DataTypes.TEXT, allowNull: true },
       validade: { type: DataTypes.DATEONLY, allowNull: true },
+      formaPagamentoId: { type: DataTypes.UUID, allowNull: true },
+      entrada: { type: DataTypes.DECIMAL(14, 2), allowNull: true },
+      parcelas: { type: DataTypes.INTEGER, allowNull: true },
       situacao: { type: DataTypes.STRING(20), allowNull: false },
       motivo: { type: DataTypes.TEXT, allowNull: true },
     },
@@ -77,6 +84,7 @@ export function initEntidadesProposta(sequelize: Sequelize) {
   Proposta.belongsTo(Imovel, { foreignKey: 'imovelId', as: 'imovel' });
   Cliente.hasMany(Proposta, { foreignKey: 'clienteId' });
   Proposta.belongsTo(Cliente, { foreignKey: 'clienteId', as: 'cliente' });
+  Proposta.belongsTo(FormaPagamento, { foreignKey: 'formaPagamentoId', as: 'formaPagamento' });
   Proposta.hasMany(HistoricoProposta, { foreignKey: 'propostaId', as: 'historico' });
   HistoricoProposta.belongsTo(Proposta, { foreignKey: 'propostaId' });
 }

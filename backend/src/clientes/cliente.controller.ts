@@ -18,7 +18,8 @@ import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decora
 import { Roles } from '../auth/roles.decorator.js';
 import { RolesGuard } from '../auth/roles.guard.js';
 import { atorDe } from '../comum/ator.js';
-import { ClienteDto, type DadosCliente, ListarClientesDto } from './cliente.schema.js';
+import { entradaValidada } from '../comum/entrada.js';
+import { ClienteDto, ListarClientesDto, clienteSchema } from './cliente.schema.js';
 import { ClienteService } from './cliente.service.js';
 
 @ApiTags('clientes')
@@ -46,7 +47,7 @@ export class ClienteController {
     @CurrentUser() usuario: AuthenticatedUser,
     @Req() request: Request,
   ) {
-    return this.clientes.criar(body as unknown as DadosCliente, atorDe(usuario, request));
+    return this.clientes.criar(entradaValidada(clienteSchema, body), atorDe(usuario, request));
   }
 
   @Patch(':id')
@@ -57,7 +58,7 @@ export class ClienteController {
     @CurrentUser() usuario: AuthenticatedUser,
     @Req() request: Request,
   ) {
-    return this.clientes.atualizar(id, body as unknown as DadosCliente, atorDe(usuario, request));
+    return this.clientes.atualizar(id, entradaValidada(clienteSchema, body), atorDe(usuario, request));
   }
 
   @Delete(':id')

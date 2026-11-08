@@ -4,24 +4,29 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Transaction } from 'sequelize';
+import { rethrowConstraint } from '../common/sequelize-errors.js';
+import { registrarAuditoria } from '../audit/registrar.js';
 import { AuditWriter } from '../audit/audit-entry.js';
 import type { Ator } from '../comum/ator.js';
 import { Imovel } from '../database/entidades-catalogo.js';
+import { Contrato } from '../database/entidades-contrato.js';
 import { Proposta } from '../database/entidades-proposta.js';
 import { SEQUELIZE } from '../database/database.module.js';
-import type { Sequelize } from 'sequelize';
+import type { Sequelize, Transaction } from 'sequelize';
+import { hojeIso } from '../comum/datas.js';
+import { FormaPagamentoService } from '../formas-pagamento/forma-pagamento.service.js';
+import { SITUACOES_IMOVEL_ABERTAS, SituacaoImovel } from '../imoveis/situacao-imovel.js';
 import { PropostaRepository } from './proposta.repository.js';
 import type { DadosProposta, ListarPropostasDto } from './proposta.schema.js';
-
-const SITUACOES_IMOVEL_ABERTAS = new Set(['DISPONIVEL', 'EM_NEGOCIACAO', 'RESERVADO']);
 
 @Injectable()
 export class PropostaService {
   constructor(
     private readonly propostas: PropostaRepository,
     private readonly audit: AuditWriter,
+    private readonly situacaoImovel: SituacaoImovel,
     @Inject(SEQUELIZE) private readonly sequelize: Sequelize,
+    private readonly formas: FormaPagamentoService,
   ) {}
 
   async listar(consulta: ListarPropostasDto) {
@@ -47,7 +52,17 @@ export class PropostaService {
   }
 
   async buscarPorId(id: string) {
-    return this.apresentar(await this.obterOuFalhar(id));
+    const proposta = await this.obterOuFalhar(id);
+    const contrato = await Contrato.findOne({
+      where: { propostaId: proposta.id },
+      attributes: ['id', 'situacao', 'codigo'],
+    });
+    return {
+      ...this.apresentar(proposta),
+      contratoId: contrato?.id ?? null,
+      contratoSituacao: contrato?.situacao ?? null,
+      contratoCodigo: contrato?.codigo ?? null,
+    };
   }
 
   async criar(dados: DadosProposta, ator: Ator) {
@@ -64,6 +79,9 @@ export class PropostaService {
           valor: dados.valor,
           condicoes: dados.condicoes || null,
           validade: dados.validade || null,
+          entrada: dados.entrada ?? null,
+          parcelas: dados.parcelas ?? null,
+          formaPagamentoId: await this.formaId(dados.formaPagamentoId),
           situacao: 'RASCUNHO',
           motivo: null,
         },
@@ -98,6 +116,9 @@ export class PropostaService {
       valor: dados.valor,
       condicoes: dados.condicoes || null,
       validade: dados.validade || null,
+      entrada: dados.entrada ?? null,
+      parcelas: dados.parcelas ?? null,
+      formaPagamentoId: await this.formaId(dados.formaPagamentoId, proposta.formaPagamentoId),
     });
     await this.auditar(ator, 'PROPOSTA_ATUALIZADA', id, null, { valor: dados.valor });
     return this.apresentar(await this.obterOuFalhar(id));
@@ -106,7 +127,11 @@ export class PropostaService {
   async excluir(id: string, ator: Ator) {
     const proposta = await this.obterOuFalhar(id);
     this.exigirSituacao(proposta, ['RASCUNHO'], 'Só é possível excluir uma proposta em rascunho.');
-    await this.propostas.excluir(proposta);
+    try {
+      await this.propostas.excluir(proposta);
+    } catch (error) {
+      rethrowConstraint(error, 'Não foi possível excluir a proposta.', 'Esta proposta está vinculada a um contrato.');
+    }
     await this.auditar(ator, 'PROPOSTA_EXCLUIDA', id, { situacao: 'RASCUNHO' }, null);
   }
 
@@ -117,9 +142,7 @@ export class PropostaService {
     const imovel = await this.garantirImovel(proposta.imovelId);
     await this.sequelize.transaction(async (transaction) => {
       await this.mudarSituacao(proposta, 'ENVIADA', null, 'Proposta enviada.', ator, transaction);
-      if (imovel.situacao === 'DISPONIVEL') {
-        await this.propostas.atualizarSituacaoImovel(imovel, 'EM_NEGOCIACAO', transaction);
-      }
+      await this.situacaoImovel.marcarNegociacao(imovel, transaction);
     });
     await this.auditar(ator, 'PROPOSTA_ENVIADA', id, { situacao: 'RASCUNHO' }, { situacao: 'ENVIADA' });
     return this.apresentar(await this.obterOuFalhar(id));
@@ -130,17 +153,19 @@ export class PropostaService {
     this.exigirSituacao(proposta, ['ENVIADA'], 'Só é possível aceitar uma proposta enviada.');
     const imovel = await this.garantirImovel(proposta.imovelId);
     await this.sequelize.transaction(async (transaction) => {
+      const aceitas = await this.propostas.contarPorSituacao(proposta.imovelId, 'ACEITA', transaction);
+      if (aceitas > 0) {
+        throw new BadRequestException('Já existe uma proposta aceita para este imóvel.');
+      }
       await this.mudarSituacao(proposta, 'ACEITA', null, 'Proposta aceita.', ator, transaction);
-      await this.propostas.recusarOutrasEnviadas(
+      await this.recusarOutrasEnviadas(
         proposta.imovelId,
         proposta.finalidade,
         proposta.id,
         ator.usuarioId,
         transaction,
       );
-      if (imovel.situacao !== 'VENDIDO' && imovel.situacao !== 'ALUGADO') {
-        await this.propostas.atualizarSituacaoImovel(imovel, 'RESERVADO', transaction);
-      }
+      await this.situacaoImovel.reservar(imovel, transaction);
     });
     await this.auditar(ator, 'PROPOSTA_ACEITA', id, { situacao: 'ENVIADA' }, { situacao: 'ACEITA' });
     return this.apresentar(await this.obterOuFalhar(id));
@@ -182,14 +207,43 @@ export class PropostaService {
     return this.apresentar(await this.obterOuFalhar(id));
   }
 
+  private async recusarOutrasEnviadas(
+    imovelId: string,
+    finalidade: string,
+    propostaId: string,
+    usuarioId: string,
+    transaction: Transaction,
+  ) {
+    const outras = await this.propostas.listarOutrasEnviadas(
+      imovelId,
+      finalidade,
+      propostaId,
+      transaction,
+    );
+    for (const outra of outras) {
+      await this.propostas.atualizar(
+        outra,
+        { situacao: 'RECUSADA', motivo: 'Substituída por outra proposta aceita.' },
+        transaction,
+      );
+      await this.propostas.registrarHistorico(
+        {
+          propostaId: outra.id,
+          situacaoAnterior: 'ENVIADA',
+          situacaoNova: 'RECUSADA',
+          observacao: 'Substituída por outra proposta aceita.',
+          usuarioId,
+        },
+        transaction,
+      );
+    }
+  }
+
   private async liberarImovel(imovelId: string, transaction: Transaction) {
     const imovel = await this.propostas.buscarImovel(imovelId);
     if (!imovel) return;
     const ativas = await this.propostas.contarAtivas(imovelId, transaction);
-    if (ativas > 0) return;
-    if (imovel.situacao === 'EM_NEGOCIACAO' || imovel.situacao === 'RESERVADO') {
-      await this.propostas.atualizarSituacaoImovel(imovel, 'DISPONIVEL', transaction);
-    }
+    await this.situacaoImovel.liberarSeSemPropostaAtiva(imovel, ativas, transaction);
   }
 
   private async mudarSituacao(
@@ -236,7 +290,7 @@ export class PropostaService {
 
   private garantirValidade(validade: string | null) {
     if (!validade) return;
-    const hoje = new Date().toISOString().slice(0, 10);
+    const hoje = hojeIso();
     if (validade < hoje) {
       throw new BadRequestException('A validade da proposta já passou.');
     }
@@ -283,10 +337,19 @@ export class PropostaService {
       finalidade: proposta.finalidade,
       valor: Number(proposta.valor),
       validade: proposta.validade,
+      entrada: proposta.entrada == null ? null : Number(proposta.entrada),
+      parcelas: proposta.parcelas,
+      formaPagamentoId: proposta.formaPagamentoId,
+      formaPagamento: proposta.formaPagamento?.nome ?? null,
       situacao: proposta.situacao,
       corretor: proposta.corretor?.name ?? null,
       criadoEm: proposta.createdAt,
     };
+  }
+
+  private async formaId(valor?: string | null, atual?: string | null) {
+    if (!valor) return null;
+    return this.formas.garantirUtilizavel(valor, valor === atual);
   }
 
   private auditar(
@@ -296,15 +359,6 @@ export class PropostaService {
     oldValues: Record<string, unknown> | null,
     newValues: Record<string, unknown> | null,
   ) {
-    return this.audit.record({
-      userId: ator.usuarioId,
-      action,
-      entity: 'Proposta',
-      entityId,
-      oldValues,
-      newValues,
-      ip: ator.ip ?? null,
-      userAgent: ator.userAgent ?? null,
-    });
+    return registrarAuditoria(this.audit, ator, action, 'Proposta', entityId, oldValues, newValues);
   }
 }

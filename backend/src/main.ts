@@ -18,7 +18,7 @@ async function bootstrap() {
   });
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('Gestão Imobiliária')
+    .setTitle('Sacramento Imóveis')
     .setDescription('API do sistema de gestão imobiliária e contratos')
     .setVersion('1.0')
     .addBearerAuth()

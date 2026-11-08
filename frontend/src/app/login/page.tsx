@@ -3,10 +3,10 @@ import { LoginForm } from "./login-form";
 
 export default function LoginPage() {
   return (
-    <main className="flex flex-1 items-center justify-center bg-background px-4 py-12">
+    <main className="pagina items-center justify-center bg-background">
       <Card className="w-full max-w-md">
-        <Card.Header>
-          <Card.Title>Gestão</Card.Title>
+        <Card.Header className="bg-black">
+          <img src="/logo-sacramento.png" alt="Sacramento Corretor de Imóveis" className="h-12 w-full object-contain" />
         </Card.Header>
         <Card.Content>
           <LoginForm />

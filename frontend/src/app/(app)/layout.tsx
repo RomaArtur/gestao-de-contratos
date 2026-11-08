@@ -13,8 +13,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-full flex-1 bg-background">
       <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-surface">
-        <div className="px-4 py-5">
-          <p className="text-sm font-semibold text-accent">Gestão</p>
+        <div className="bg-black px-3 py-4">
+          <img src="/logo-sacramento.png" alt="Sacramento Corretor de Imóveis" className="h-12 w-full object-contain" />
         </div>
         <AppNav />
         <div className="border-t border-border p-3">

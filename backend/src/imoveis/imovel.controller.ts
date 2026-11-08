@@ -1,6 +1,3 @@
-import { randomUUID } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
-import { extname, join } from 'node:path';
 import {
   BadRequestException,
   Body,
@@ -21,47 +18,27 @@ import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { diskStorage } from 'multer';
+import {
+  EXTENSOES_DOCUMENTO,
+  EXTENSOES_IMAGEM,
+  TIPOS_DOCUMENTO,
+  TIPOS_IMAGEM,
+  aceitarArquivo,
+  destinoUpload,
+} from '../arquivos/upload.js';
 import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { RolesGuard } from '../auth/roles.guard.js';
 import { atorDe } from '../comum/ator.js';
+import { entradaValidada } from '../comum/entrada.js';
 import { ImovelService } from './imovel.service.js';
 import {
   CategoriaDocumentoDto,
   ImovelDto,
   ListarImoveisDto,
   OrdenarFotosDto,
-  type DadosImovel,
+  imovelSchema,
 } from './imovel.schema.js';
-
-function destinoUpload(permitidas: string[]) {
-  return diskStorage({
-    destination: (_req, _file, callback) => {
-      const diretorio = join(process.cwd(), process.env.UPLOAD_DIR || 'uploads');
-      mkdirSync(diretorio, { recursive: true });
-      callback(null, diretorio);
-    },
-    filename: (_req, file, callback) => {
-      const extensao = extname(file.originalname).toLowerCase();
-      callback(null, `${randomUUID()}${permitidas.includes(extensao) ? extensao : ''}`);
-    },
-  });
-}
-
-function aceitar(tipos: string[], mensagem: string) {
-  return (
-    _req: Request,
-    file: { mimetype: string },
-    callback: (error: Error | null, aceito: boolean) => void,
-  ) => {
-    if (!tipos.includes(file.mimetype)) {
-      callback(new BadRequestException(mensagem), false);
-      return;
-    }
-    callback(null, true);
-  };
-}
 
 @ApiTags('imoveis')
 @ApiBearerAuth()
@@ -88,7 +65,7 @@ export class ImovelController {
     @CurrentUser() usuario: AuthenticatedUser,
     @Req() request: Request,
   ) {
-    return this.imoveis.criar(body as unknown as DadosImovel, atorDe(usuario, request));
+    return this.imoveis.criar(entradaValidada(imovelSchema, body), atorDe(usuario, request));
   }
 
   @Patch(':id')
@@ -99,7 +76,7 @@ export class ImovelController {
     @CurrentUser() usuario: AuthenticatedUser,
     @Req() request: Request,
   ) {
-    return this.imoveis.atualizar(id, body as unknown as DadosImovel, atorDe(usuario, request));
+    return this.imoveis.atualizar(id, entradaValidada(imovelSchema, body), atorDe(usuario, request));
   }
 
   @Delete(':id')
@@ -121,12 +98,9 @@ export class ImovelController {
   })
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: destinoUpload(['.jpg', '.jpeg', '.png', '.webp']),
+      storage: destinoUpload(EXTENSOES_IMAGEM),
       limits: { fileSize: 5 * 1024 * 1024 },
-      fileFilter: aceitar(
-        ['image/jpeg', 'image/png', 'image/webp'],
-        'Envie uma imagem JPG, PNG ou WebP de até 5 MB.',
-      ),
+      fileFilter: aceitarArquivo(TIPOS_IMAGEM, 'Envie uma imagem JPG, PNG ou WebP de até 5 MB.'),
     }),
   )
   adicionarFoto(
@@ -170,12 +144,9 @@ export class ImovelController {
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: destinoUpload(['.pdf', '.jpg', '.jpeg', '.png', '.webp']),
+      storage: destinoUpload(EXTENSOES_DOCUMENTO),
       limits: { fileSize: 10 * 1024 * 1024 },
-      fileFilter: aceitar(
-        ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'],
-        'Envie um PDF ou imagem de até 10 MB.',
-      ),
+      fileFilter: aceitarArquivo(TIPOS_DOCUMENTO, 'Envie um PDF ou imagem de até 10 MB.'),
     }),
   )
   adicionarDocumento(

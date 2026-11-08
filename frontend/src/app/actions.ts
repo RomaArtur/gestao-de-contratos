@@ -15,6 +15,12 @@ export async function loginAction(values: { email: string; password: string }) {
       redirectTo: "/",
     });
   } catch (error) {
+    const causa = error instanceof Error ? error.message : "";
+    const aninhada =
+      error instanceof Error && error.cause instanceof Error ? error.cause.message : "";
+    if (causa.includes("API_UNAVAILABLE") || aninhada.includes("API_UNAVAILABLE")) {
+      return { error: "A API está fora do ar. Suba o backend em http://localhost:3001." };
+    }
     if (error instanceof AuthError) {
       return { error: "E-mail ou senha inválidos." };
     }

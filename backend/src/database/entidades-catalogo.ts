@@ -102,6 +102,12 @@ export class DocumentoImovel extends Model {
   declare createdAt: Date;
 }
 
+export class FormaPagamento extends Model {
+  declare id: string;
+  declare nome: string;
+  declare ativo: boolean;
+}
+
 export class Cliente extends Model {
   declare id: string;
   declare nome: string;
@@ -220,6 +226,15 @@ export function initEntidadesCatalogo(sequelize: Sequelize) {
       observacoes: { type: DataTypes.TEXT, allowNull: true },
     },
     { sequelize, tableName: 'clientes', underscored: true },
+  );
+
+  FormaPagamento.init(
+    {
+      id: colunaId(),
+      nome: { type: DataTypes.STRING(80), allowNull: false },
+      ativo: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    },
+    { sequelize, tableName: 'formas_pagamento', underscored: true },
   );
 
   Proprietario.hasMany(Imovel, { foreignKey: 'proprietarioId' });

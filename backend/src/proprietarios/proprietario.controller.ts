@@ -18,11 +18,8 @@ import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decora
 import { Roles } from '../auth/roles.decorator.js';
 import { RolesGuard } from '../auth/roles.guard.js';
 import { atorDe } from '../comum/ator.js';
-import {
-  ListarProprietariosDto,
-  ProprietarioDto,
-  type DadosProprietario,
-} from './proprietario.schema.js';
+import { entradaValidada } from '../comum/entrada.js';
+import { ListarProprietariosDto, ProprietarioDto, proprietarioSchema } from './proprietario.schema.js';
 import { ProprietarioService } from './proprietario.service.js';
 
 @ApiTags('proprietarios')
@@ -50,7 +47,7 @@ export class ProprietarioController {
     @CurrentUser() usuario: AuthenticatedUser,
     @Req() request: Request,
   ) {
-    return this.proprietarios.criar(body as unknown as DadosProprietario, atorDe(usuario, request));
+    return this.proprietarios.criar(entradaValidada(proprietarioSchema, body), atorDe(usuario, request));
   }
 
   @Patch(':id')
@@ -63,7 +60,7 @@ export class ProprietarioController {
   ) {
     return this.proprietarios.atualizar(
       id,
-      body as unknown as DadosProprietario,
+      entradaValidada(proprietarioSchema, body),
       atorDe(usuario, request),
     );
   }

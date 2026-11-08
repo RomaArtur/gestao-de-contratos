@@ -1,34 +1,52 @@
 import { Injectable } from '@nestjs/common';
 import { Op, type Transaction, type WhereOptions } from 'sequelize';
-import { Cliente, Imovel } from '../database/entidades-catalogo.js';
+import { Cliente, FormaPagamento, Imovel, Proprietario } from '../database/entidades-catalogo.js';
 import {
   Contrato,
   DocumentoContrato,
   HistoricoContrato,
+  ModeloContrato,
+  ReenvioContrato,
 } from '../database/entidades-contrato.js';
 import { Proposta } from '../database/entidades-proposta.js';
 import { User } from '../database/models.js';
+import { limitesVigencia } from '../comum/datas.js';
 
 export type FiltroContratos = {
   busca?: string;
   situacao?: string;
   imovelId?: string;
   clienteId?: string;
+  recorte?: string;
   pagina: number;
   tamanhoPagina: number;
 };
 
 const inclusoes = [
-  { model: Imovel, as: 'imovel', attributes: ['id', 'codigo', 'situacao'] },
-  { model: Cliente, as: 'cliente', attributes: ['id', 'nome'] },
+  {
+    model: Imovel,
+    as: 'imovel',
+    attributes: ['id', 'codigo', 'situacao', 'proprietarioId'],
+    include: [{ model: Proprietario, as: 'proprietario', attributes: ['id', 'nome'] }],
+  },
+  { model: Cliente, as: 'cliente', attributes: ['id', 'nome', 'email'] },
   { model: User, as: 'corretor', attributes: ['id', 'name'] },
+  { model: FormaPagamento, as: 'formaPagamento', attributes: ['id', 'nome'], required: false },
 ];
 
 @Injectable()
 export class ContratoRepository {
   listar(filtro: FiltroContratos) {
     const where: WhereOptions[] = [];
-    if (filtro.situacao) where.push({ situacao: filtro.situacao });
+    if (filtro.recorte) {
+      const { hoje, limite } = limitesVigencia();
+      where.push({ situacao: 'VIGENTE' });
+      if (filtro.recorte === 'ativos') where.push({ vencimento: { [Op.gte]: hoje } });
+      if (filtro.recorte === 'vencidos') where.push({ vencimento: { [Op.lt]: hoje } });
+      if (filtro.recorte === 'proximos') where.push({ vencimento: { [Op.between]: [hoje, limite] } });
+    } else if (filtro.situacao) {
+      where.push({ situacao: filtro.situacao });
+    }
     if (filtro.imovelId) where.push({ imovelId: filtro.imovelId });
     if (filtro.clienteId) where.push({ clienteId: filtro.clienteId });
     const busca = filtro.busca?.trim();
@@ -85,8 +103,30 @@ export class ContratoRepository {
     return Proposta.findByPk(id);
   }
 
+  buscarPropostaCompleta(id: string) {
+    return Proposta.findByPk(id, {
+      include: [
+        {
+          model: Imovel,
+          as: 'imovel',
+          include: [{ model: Proprietario, as: 'proprietario' }],
+        },
+        { model: Cliente, as: 'cliente' },
+        { model: FormaPagamento, as: 'formaPagamento', required: false },
+      ],
+    });
+  }
+
+  buscarModelo(formaPagamentoId: string) {
+    return ModeloContrato.findOne({ where: { formaPagamentoId } });
+  }
+
   buscarImovel(id: string) {
     return Imovel.findByPk(id);
+  }
+
+  buscarCliente(id: string) {
+    return Cliente.findByPk(id, { attributes: ['id'] });
   }
 
   async proximoCodigo(transaction: Transaction) {
@@ -130,8 +170,20 @@ export class ContratoRepository {
     });
   }
 
-  atualizarSituacaoImovel(imovel: Imovel, situacao: string, transaction: Transaction) {
-    return imovel.update({ situacao }, { transaction });
+  contarPropostas(
+    imovelId: string,
+    situacoes: string[],
+    transaction?: Transaction,
+    excetoId?: string | null,
+  ) {
+    return Proposta.count({
+      where: {
+        imovelId,
+        situacao: { [Op.in]: situacoes },
+        ...(excetoId ? { id: { [Op.ne]: excetoId } } : {}),
+      },
+      transaction,
+    });
   }
 
   contarDocumentos(contratoId: string) {
@@ -144,5 +196,14 @@ export class ContratoRepository {
 
   buscarDocumento(contratoId: string, documentoId: string) {
     return DocumentoContrato.findOne({ where: { id: documentoId, contratoId } });
+  }
+
+  registrarReenvio(dados: {
+    contratoId: string;
+    clienteId: string;
+    email: string;
+    usuarioId: string;
+  }) {
+    return ReenvioContrato.create(dados);
   }
 }

@@ -3,6 +3,7 @@ import {
   Model,
   type Sequelize,
 } from 'sequelize';
+import { initEntidadesAgenda } from './entidades-agenda.js';
 import { initEntidadesCatalogo } from './entidades-catalogo.js';
 import { associarCorretorContrato, initEntidadesContrato } from './entidades-contrato.js';
 import { associarCorretor, initEntidadesProposta } from './entidades-proposta.js';
@@ -149,6 +150,7 @@ export function initModels(sequelize: Sequelize) {
   initEntidadesCatalogo(sequelize);
   initEntidadesProposta(sequelize);
   initEntidadesContrato(sequelize);
+  initEntidadesAgenda(sequelize);
   associarCorretor(User);
   associarCorretorContrato(User);
 

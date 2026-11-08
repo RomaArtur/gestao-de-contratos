@@ -4,6 +4,9 @@ import { buttonVariants } from "@heroui/styles";
 import { api } from "@/lib/api";
 import { dinheiro, finalidades, rotuloDe, situacoes, tiposImovel } from "@/lib/labels";
 import { canWrite } from "@/lib/permissions";
+import { Plus } from "lucide-react";
+import { icones, TituloPagina } from "@/components/icones";
+import { MenuAcoes } from "@/components/ui/menu-acoes";
 import { Busca } from "@/components/ui/busca";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import { FiltrosImoveis } from "@/components/ui/filtros-imoveis";
@@ -45,11 +48,12 @@ export default async function PaginaImoveis({
   delete extras.pagina;
 
   return (
-    <main className="flex flex-1 flex-col gap-4 px-8 py-8">
+    <main className="pagina">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Imóveis</h1>
+        <TituloPagina icone={icones.imoveis}>Imóveis</TituloPagina>
         {canWrite(session?.user?.role) ? (
           <Link href="/imoveis/novo" className={buttonVariants({ variant: "primary" })}>
+            <Plus className="size-4" aria-hidden />
             Novo
           </Link>
         ) : null}
@@ -60,7 +64,7 @@ export default async function PaginaImoveis({
       </div>
       <Tabela
         rotulo="Imóveis"
-        colunas={["Código", "Tipo", "Situação", "Local", "Valor"]}
+        colunas={["Código", "Tipo", "Situação", "Finalidade", "Local", "Valor", "Ações"]}
         linhas={resultado.dados.map((imovel) => ({
           id: imovel.id,
           celulas: [
@@ -68,14 +72,13 @@ export default async function PaginaImoveis({
               {imovel.codigo}
             </Link>,
             rotuloDe(tiposImovel, imovel.tipo),
-            <span key="situacao" className="flex flex-wrap gap-1">
-              <Etiqueta valor={imovel.situacao} rotulo={rotuloDe(situacoes, imovel.situacao)} />
-              <Etiqueta valor={imovel.finalidade} rotulo={rotuloDe(finalidades, imovel.finalidade)} />
-            </span>,
+            <Etiqueta key="situacao" valor={imovel.situacao} rotulo={rotuloDe(situacoes, imovel.situacao)} />,
+            <Etiqueta key="finalidade" valor={imovel.finalidade} rotulo={rotuloDe(finalidades, imovel.finalidade)} />,
             `${imovel.bairro}, ${imovel.cidade}`,
             [imovel.valorVenda != null ? dinheiro(imovel.valorVenda) : null, imovel.valorAluguel != null ? dinheiro(imovel.valorAluguel) : null]
               .filter(Boolean)
               .join(" · ") || "—",
+            <MenuAcoes key="acoes" rotulo={`Ações de ${imovel.codigo}`} acoes={[{ id: "ver", rotulo: "Visualizar", href: `/imoveis/${imovel.id}` }]} />,
           ],
         }))}
       />

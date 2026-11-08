@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { AuditWriter } from '../audit/audit-entry.js';
+import { registrarAuditoria } from '../audit/registrar.js';
 import { FieldCipher } from '../common/crypto/crypto.module.js';
 import { formatDocument } from '../common/crypto/documents.js';
 import { documentLookup, maskDocument } from '../common/crypto/field-cipher.js';
@@ -82,16 +83,15 @@ export class ProprietarioService {
         'Este proprietário possui imóveis vinculados.',
       );
     }
-    await this.audit.record({
-      userId: ator.usuarioId,
-      action: 'PROPRIETARIO_EXCLUIDO',
-      entity: 'Proprietario',
-      entityId: id,
-      oldValues: anterior,
-      newValues: null,
-      ip: ator.ip ?? null,
-      userAgent: ator.userAgent ?? null,
-    });
+    await registrarAuditoria(
+      this.audit,
+      ator,
+      'PROPRIETARIO_EXCLUIDO',
+      'Proprietario',
+      id,
+      anterior,
+      null,
+    );
   }
 
   private colunas(dados: DadosProprietario, digitos: string) {
@@ -167,15 +167,14 @@ export class ProprietarioService {
     proprietario: Proprietario,
     digitos: string,
   ) {
-    return this.audit.record({
-      userId: ator.usuarioId,
+    return registrarAuditoria(
+      this.audit,
+      ator,
       action,
-      entity: 'Proprietario',
+      'Proprietario',
       entityId,
       oldValues,
-      newValues: this.resumo(proprietario, digitos),
-      ip: ator.ip ?? null,
-      userAgent: ator.userAgent ?? null,
-    });
+      this.resumo(proprietario, digitos),
+    );
   }
 }

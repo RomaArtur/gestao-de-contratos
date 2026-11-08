@@ -19,8 +19,9 @@ type LoginValues = z.infer<typeof loginSchema>;
 export function LoginForm() {
   const [serverError, setServerError] = useState<string | null>(null);
   const {
-    register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -37,14 +38,28 @@ export function LoginForm() {
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)} noValidate>
-      <TextField isInvalid={Boolean(errors.email)} name="email" type="email" fullWidth>
+      <TextField
+        autoComplete="email"
+        fullWidth
+        isInvalid={Boolean(errors.email)}
+        type="email"
+        value={watch("email")}
+        onChange={(valor) => setValue("email", valor, { shouldValidate: true })}
+      >
         <Label>E-mail</Label>
-        <Input autoComplete="email" {...register("email")} />
+        <Input />
         {errors.email ? <FieldError>{errors.email.message}</FieldError> : null}
       </TextField>
-      <TextField isInvalid={Boolean(errors.password)} name="password" type="password" fullWidth>
+      <TextField
+        autoComplete="current-password"
+        fullWidth
+        isInvalid={Boolean(errors.password)}
+        type="password"
+        value={watch("password")}
+        onChange={(valor) => setValue("password", valor, { shouldValidate: true })}
+      >
         <Label>Senha</Label>
-        <Input autoComplete="current-password" {...register("password")} />
+        <Input />
         {errors.password ? <FieldError>{errors.password.message}</FieldError> : null}
       </TextField>
       {serverError ? (

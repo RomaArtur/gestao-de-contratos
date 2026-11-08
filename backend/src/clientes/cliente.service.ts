@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { AuditWriter } from '../audit/audit-entry.js';
+import { registrarAuditoria } from '../audit/registrar.js';
 import { FieldCipher } from '../common/crypto/crypto.module.js';
 import { formatDocument } from '../common/crypto/documents.js';
 import { documentLookup, maskDocument } from '../common/crypto/field-cipher.js';
@@ -7,8 +8,8 @@ import { rethrowConstraint } from '../common/sequelize-errors.js';
 import type { Ator } from '../comum/ator.js';
 import { colunasEndereco, enderecoDe } from '../comum/endereco.js';
 import { Cliente } from '../database/entidades-catalogo.js';
-import { ContratoRepository } from '../contratos/contrato.repository.js';
-import { PropostaRepository } from '../propostas/proposta.repository.js';
+import { ContratoService } from '../contratos/contrato.service.js';
+import { PropostaService } from '../propostas/proposta.service.js';
 import { ClienteRepository } from './cliente.repository.js';
 import { digitosDocumento, type DadosCliente, type ListarClientesDto } from './cliente.schema.js';
 
@@ -16,8 +17,8 @@ import { digitosDocumento, type DadosCliente, type ListarClientesDto } from './c
 export class ClienteService {
   constructor(
     private readonly clientes: ClienteRepository,
-    private readonly propostas: PropostaRepository,
-    private readonly contratos: ContratoRepository,
+    private readonly propostas: PropostaService,
+    private readonly contratos: ContratoService,
     private readonly cipher: FieldCipher,
     private readonly audit: AuditWriter,
   ) {}
@@ -52,16 +53,16 @@ export class ClienteService {
       historico: {
         propostas: propostas.map((proposta) => ({
           id: proposta.id,
-          codigoImovel: proposta.imovel?.codigo ?? null,
-          valor: Number(proposta.valor),
+          codigoImovel: proposta.codigoImovel,
+          valor: proposta.valor,
           situacao: proposta.situacao,
           finalidade: proposta.finalidade,
         })),
         contratos: contratos.map((contrato) => ({
           id: contrato.id,
           codigo: contrato.codigo,
-          codigoImovel: contrato.imovel?.codigo ?? null,
-          valor: Number(contrato.valor),
+          codigoImovel: contrato.codigoImovel,
+          valor: contrato.valor,
           situacao: contrato.situacao,
           vencimento: contrato.vencimento,
         })),
@@ -97,17 +98,16 @@ export class ClienteService {
     const cliente = await this.obterOuFalhar(id);
     const digitos = this.cipher.decrypt(cliente.documentoCifrado);
     const anterior = this.resumo(cliente, digitos);
-    await this.clientes.excluir(cliente);
-    await this.audit.record({
-      userId: ator.usuarioId,
-      action: 'CLIENTE_EXCLUIDO',
-      entity: 'Cliente',
-      entityId: id,
-      oldValues: anterior,
-      newValues: null,
-      ip: ator.ip ?? null,
-      userAgent: ator.userAgent ?? null,
-    });
+    try {
+      await this.clientes.excluir(cliente);
+    } catch (error) {
+      rethrowConstraint(
+        error,
+        'Não foi possível excluir o cliente.',
+        'Este cliente está vinculado a propostas, contratos ou eventos.',
+      );
+    }
+    await registrarAuditoria(this.audit, ator, 'CLIENTE_EXCLUIDO', 'Cliente', id, anterior, null);
   }
 
   private colunas(dados: DadosCliente, digitos: string) {
@@ -180,15 +180,14 @@ export class ClienteService {
     cliente: Cliente,
     digitos: string,
   ) {
-    return this.audit.record({
-      userId: ator.usuarioId,
+    return registrarAuditoria(
+      this.audit,
+      ator,
       action,
-      entity: 'Cliente',
+      'Cliente',
       entityId,
       oldValues,
-      newValues: this.resumo(cliente, digitos),
-      ip: ator.ip ?? null,
-      userAgent: ator.userAgent ?? null,
-    });
+      this.resumo(cliente, digitos),
+    );
   }
 }

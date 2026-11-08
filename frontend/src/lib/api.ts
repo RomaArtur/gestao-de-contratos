@@ -37,3 +37,17 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   }
   return body as T;
 }
+
+export async function listarTudo<T>(caminho: string, tamanhoPagina = 100): Promise<T[]> {
+  const acumulado: T[] = [];
+  let pagina = 1;
+  for (;;) {
+    const separador = caminho.includes("?") ? "&" : "?";
+    const resposta = await api<{ dados: T[]; total: number }>(
+      `${caminho}${separador}pagina=${pagina}&tamanhoPagina=${tamanhoPagina}`,
+    );
+    acumulado.push(...resposta.dados);
+    if (acumulado.length >= resposta.total || resposta.dados.length === 0) return acumulado;
+    pagina += 1;
+  }
+}

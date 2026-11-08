@@ -5,17 +5,18 @@ import { redirect } from "next/navigation";
 import { ApiError, api } from "@/lib/api";
 
 export type DadosContrato = {
-  propostaId: string;
+  propostaId?: string;
+  imovelId?: string;
+  clienteId?: string;
+  finalidade?: "VENDA" | "ALUGUEL";
+  valor?: number;
+  formaPagamentoId?: string;
   dataInicio: string;
   vencimento: string;
   observacoes?: string;
 };
 
-export type DadosAtualizacaoContrato = {
-  dataInicio: string;
-  vencimento: string;
-  observacoes?: string;
-};
+export type DadosAtualizacaoContrato = DadosContrato;
 
 export async function salvarContrato(id: string | null, dados: DadosContrato | DadosAtualizacaoContrato) {
   try {
@@ -40,6 +41,49 @@ export async function excluirContrato(id: string) {
   }
   revalidatePath("/contratos");
   redirect("/contratos");
+}
+
+export async function salvarDocumentoContrato(id: string, conteudo: string, edicaoExplicita = false) {
+  try {
+    await api(`/contratos/${id}/documento`, {
+      method: "PATCH",
+      body: JSON.stringify({ conteudo, edicaoExplicita }),
+    });
+  } catch (error) {
+    if (error instanceof ApiError) return { error: error.message };
+    throw error;
+  }
+  revalidatePath(`/contratos/${id}`);
+  revalidatePath("/propostas");
+  return { ok: true as const };
+}
+
+export async function finalizarContrato(id: string) {
+  let envio: { emailEnviado: boolean; emailDestino: string | null };
+  try {
+    envio = await api<{ emailEnviado: boolean; emailDestino: string | null }>(`/contratos/${id}/finalizar`, {
+      method: "POST",
+    });
+  } catch (error) {
+    if (error instanceof ApiError) return { error: error.message };
+    throw error;
+  }
+  revalidatePath("/contratos");
+  revalidatePath(`/contratos/${id}`);
+  const email = envio.emailEnviado ? "enviado" : envio.emailDestino ? "falhou" : "sem";
+  const destino = encodeURIComponent(envio.emailDestino ?? "");
+  redirect(`/contratos/${id}?aba=documento&email=${email}&destino=${destino}`);
+}
+
+export async function reenviarContrato(id: string) {
+  try {
+    return await api<{ email: string; emailEnviado: boolean }>(`/contratos/${id}/reenviar`, {
+      method: "POST",
+    });
+  } catch (error) {
+    if (error instanceof ApiError) return { error: error.message };
+    throw error;
+  }
 }
 
 export async function ativarContrato(id: string) {

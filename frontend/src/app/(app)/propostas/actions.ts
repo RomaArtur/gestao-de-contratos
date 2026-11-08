@@ -11,6 +11,9 @@ export type DadosProposta = {
   valor: number;
   condicoes?: string;
   validade?: string;
+  formaPagamentoId?: string;
+  entrada?: number | null;
+  parcelas?: number | null;
 };
 
 export async function salvarProposta(id: string | null, dados: DadosProposta) {
@@ -36,6 +39,21 @@ export async function excluirProposta(id: string) {
   }
   revalidatePath("/propostas");
   redirect("/propostas");
+}
+
+export async function gerarContrato(
+  id: string,
+  datas: { dataInicio: string; vencimento: string },
+) {
+  try {
+    await api(`/propostas/${id}/gerar-contrato`, { method: "POST", body: JSON.stringify(datas) });
+  } catch (error) {
+    if (error instanceof ApiError) return { error: error.message };
+    throw error;
+  }
+  revalidatePath(`/propostas/${id}`);
+  revalidatePath("/contratos");
+  redirect(`/propostas/${id}?aba=contrato`);
 }
 
 export async function enviarProposta(id: string) {

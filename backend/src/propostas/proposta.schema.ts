@@ -15,6 +15,9 @@ export const propostaSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Informe a validade.')
     .optional()
     .or(z.literal('')),
+  formaPagamentoId: z.uuid().optional().or(z.literal('')),
+  entrada: z.number().positive().max(999_999_999_999).optional().nullable(),
+  parcelas: z.number().int().min(1).max(480).optional().nullable(),
 });
 
 export class PropostaDto extends createZodDto(propostaSchema) {}

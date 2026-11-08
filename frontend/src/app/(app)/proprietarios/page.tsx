@@ -4,6 +4,9 @@ import { buttonVariants } from "@heroui/styles";
 import { api } from "@/lib/api";
 import { rotuloDe, tiposPessoa } from "@/lib/labels";
 import { canWrite } from "@/lib/permissions";
+import { Plus } from "lucide-react";
+import { icones, TituloPagina } from "@/components/icones";
+import { MenuAcoes } from "@/components/ui/menu-acoes";
 import { Busca } from "@/components/ui/busca";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import { FiltroMenu } from "@/components/ui/filtro-menu";
@@ -36,11 +39,12 @@ export default async function PaginaProprietarios({
   const resultado = await api<ListaProprietarios>(`/proprietarios?${consulta.toString()}`);
 
   return (
-    <main className="flex flex-1 flex-col gap-4 px-8 py-8">
+    <main className="pagina">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Proprietários</h1>
+        <TituloPagina icone={icones.proprietarios}>Proprietários</TituloPagina>
         {canWrite(session?.user?.role) ? (
           <Link href="/proprietarios/novo" className={buttonVariants({ variant: "primary" })}>
+            <Plus className="size-4" aria-hidden />
             Novo
           </Link>
         ) : null}
@@ -56,7 +60,7 @@ export default async function PaginaProprietarios({
       </div>
       <Tabela
         rotulo="Proprietários"
-        colunas={["Nome", "Tipo", "Documento", "Cidade"]}
+        colunas={["Nome", "Tipo", "Documento", "Cidade", "Ações"]}
         linhas={resultado.dados.map((proprietario) => ({
           id: proprietario.id,
           celulas: [
@@ -66,6 +70,7 @@ export default async function PaginaProprietarios({
             <Etiqueta key="tipo" valor={proprietario.tipoPessoa} rotulo={rotuloDe(tiposPessoa, proprietario.tipoPessoa)} />,
             proprietario.documento,
             `${proprietario.cidade}/${proprietario.uf}`,
+            <MenuAcoes key="acoes" rotulo={`Ações de ${proprietario.nome}`} acoes={[{ id: "ver", rotulo: "Visualizar", href: `/proprietarios/${proprietario.id}` }]} />,
           ],
         }))}
       />

@@ -4,6 +4,7 @@ import {
   CATEGORIAS_DOCUMENTO_CONTRATO,
   SITUACOES_CONTRATO,
 } from '../database/entidades-contrato.js';
+import { FINALIDADES_PROPOSTA } from '../database/entidades-proposta.js';
 
 const data = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Informe a data.');
 
@@ -17,14 +18,37 @@ function periodoValido(valor: { dataInicio: string; vencimento: string }, ctx: z
   }
 }
 
+const vinculo = z.uuid().optional().or(z.literal(''));
+const valor = z.number().positive().max(999_999_999_999);
+
 export const contratoSchema = z
   .object({
-    propostaId: z.uuid(),
+    propostaId: vinculo,
+    imovelId: vinculo,
+    clienteId: vinculo,
+    finalidade: z.enum(FINALIDADES_PROPOSTA).optional().or(z.literal('')),
+    valor: valor.optional(),
+    formaPagamentoId: vinculo,
     dataInicio: data,
     vencimento: data,
     observacoes: z.string().trim().max(4000).optional().or(z.literal('')),
   })
-  .superRefine(periodoValido);
+  .superRefine((valorContrato, ctx) => {
+    periodoValido(valorContrato, ctx);
+    if (valorContrato.propostaId) return;
+    if (!valorContrato.imovelId) {
+      ctx.addIssue({ code: 'custom', path: ['imovelId'], message: 'Selecione o imóvel.' });
+    }
+    if (!valorContrato.clienteId) {
+      ctx.addIssue({ code: 'custom', path: ['clienteId'], message: 'Selecione o cliente.' });
+    }
+    if (!valorContrato.finalidade) {
+      ctx.addIssue({ code: 'custom', path: ['finalidade'], message: 'Selecione a finalidade.' });
+    }
+    if (valorContrato.valor == null) {
+      ctx.addIssue({ code: 'custom', path: ['valor'], message: 'Informe o valor.' });
+    }
+  });
 
 export class ContratoDto extends createZodDto(contratoSchema) {}
 
@@ -32,6 +56,11 @@ export type DadosContrato = z.infer<typeof contratoSchema>;
 
 export const atualizarContratoSchema = z
   .object({
+    imovelId: vinculo,
+    clienteId: vinculo,
+    finalidade: z.enum(FINALIDADES_PROPOSTA).optional().or(z.literal('')),
+    valor: valor.optional(),
+    formaPagamentoId: vinculo,
     dataInicio: data,
     vencimento: data,
     observacoes: z.string().trim().max(4000).optional().or(z.literal('')),
@@ -49,6 +78,7 @@ export const listarContratosSchema = z.object({
   situacao: z.enum(SITUACOES_CONTRATO).optional().or(z.literal('')),
   imovelId: z.uuid().optional().or(z.literal('')),
   clienteId: z.uuid().optional().or(z.literal('')),
+  recorte: z.enum(['ativos', 'vencidos', 'proximos']).optional().or(z.literal('')),
 });
 
 export class ListarContratosDto extends createZodDto(listarContratosSchema) {}
@@ -64,3 +94,21 @@ export const categoriaDocumentoContratoSchema = z.object({
 });
 
 export class CategoriaDocumentoContratoDto extends createZodDto(categoriaDocumentoContratoSchema) {}
+
+export const documentoContratoSchema = z.object({
+  conteudo: z.string().trim().min(1, 'O contrato está vazio.').max(200_000),
+  edicaoExplicita: z.boolean().optional(),
+});
+
+export class DocumentoContratoDto extends createZodDto(documentoContratoSchema) {}
+
+export const gerarContratoSchema = z
+  .object({
+    dataInicio: data,
+    vencimento: data,
+  })
+  .superRefine(periodoValido);
+
+export class GerarContratoDto extends createZodDto(gerarContratoSchema) {}
+
+export type DadosGeracaoContrato = z.infer<typeof gerarContratoSchema>;

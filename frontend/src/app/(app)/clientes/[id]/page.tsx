@@ -37,7 +37,7 @@ export default async function PaginaCliente({ params }: { params: Promise<{ id: 
   const cliente = await api<Cliente>(`/clientes/${id}`);
 
   return (
-    <main className="flex flex-1 flex-col gap-6 px-8 py-8">
+    <main className="pagina">
       <h1 className="text-2xl font-semibold tracking-tight">{cliente.nome}</h1>
       <Abas
         itens={[

@@ -18,13 +18,11 @@ import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decora
 import { Roles } from '../auth/roles.decorator.js';
 import { RolesGuard } from '../auth/roles.guard.js';
 import { atorDe } from '../comum/ator.js';
+import { entradaValidada } from '../comum/entrada.js';
+import { ContratoService } from '../contratos/contrato.service.js';
+import { GerarContratoDto, gerarContratoSchema } from '../contratos/contrato.schema.js';
 import { PropostaService } from './proposta.service.js';
-import {
-  ListarPropostasDto,
-  MotivoDto,
-  PropostaDto,
-  type DadosProposta,
-} from './proposta.schema.js';
+import { ListarPropostasDto, MotivoDto, PropostaDto, propostaSchema } from './proposta.schema.js';
 
 @ApiTags('propostas')
 @ApiBearerAuth()
@@ -32,7 +30,10 @@ import {
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles('ADMIN', 'GESTOR', 'CORRETOR')
 export class PropostaController {
-  constructor(private readonly propostas: PropostaService) {}
+  constructor(
+    private readonly propostas: PropostaService,
+    private readonly contratos: ContratoService,
+  ) {}
 
   @Get()
   listar(@Query() consulta: ListarPropostasDto) {
@@ -51,7 +52,7 @@ export class PropostaController {
     @CurrentUser() usuario: AuthenticatedUser,
     @Req() request: Request,
   ) {
-    return this.propostas.criar(body as unknown as DadosProposta, atorDe(usuario, request));
+    return this.propostas.criar(entradaValidada(propostaSchema, body), atorDe(usuario, request));
   }
 
   @Patch(':id')
@@ -62,7 +63,7 @@ export class PropostaController {
     @CurrentUser() usuario: AuthenticatedUser,
     @Req() request: Request,
   ) {
-    return this.propostas.atualizar(id, body as unknown as DadosProposta, atorDe(usuario, request));
+    return this.propostas.atualizar(id, entradaValidada(propostaSchema, body), atorDe(usuario, request));
   }
 
   @Delete(':id')
@@ -74,6 +75,21 @@ export class PropostaController {
     @Req() request: Request,
   ) {
     return this.propostas.excluir(id, atorDe(usuario, request));
+  }
+
+  @Post(':id/gerar-contrato')
+  @Roles('ADMIN', 'CORRETOR')
+  gerarContrato(
+    @Param('id') id: string,
+    @Body() body: GerarContratoDto,
+    @CurrentUser() usuario: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.contratos.gerarDaProposta(
+      id,
+      entradaValidada(gerarContratoSchema, body),
+      atorDe(usuario, request),
+    );
   }
 
   @Post(':id/enviar')

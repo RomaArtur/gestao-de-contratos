@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Op, type Transaction, type WhereOptions } from 'sequelize';
-import { Cliente, Imovel } from '../database/entidades-catalogo.js';
+import { Cliente, FormaPagamento, Imovel } from '../database/entidades-catalogo.js';
 import { HistoricoProposta, Proposta } from '../database/entidades-proposta.js';
 import { User } from '../database/models.js';
 
@@ -17,6 +17,7 @@ const inclusoes = [
   { model: Imovel, as: 'imovel', attributes: ['id', 'codigo', 'situacao', 'finalidade'] },
   { model: Cliente, as: 'cliente', attributes: ['id', 'nome'] },
   { model: User, as: 'corretor', attributes: ['id', 'name'] },
+  { model: FormaPagamento, as: 'formaPagamento', attributes: ['id', 'nome'], required: false },
 ];
 
 @Injectable()
@@ -100,30 +101,16 @@ export class PropostaRepository {
     return HistoricoProposta.create(dados, { transaction });
   }
 
-  async recusarOutrasEnviadas(
+  listarOutrasEnviadas(
     imovelId: string,
     finalidade: string,
     propostaId: string,
-    usuarioId: string,
     transaction: Transaction,
   ) {
-    const outras = await Proposta.findAll({
+    return Proposta.findAll({
       where: { imovelId, finalidade, situacao: 'ENVIADA', id: { [Op.ne]: propostaId } },
       transaction,
     });
-    for (const outra of outras) {
-      await outra.update({ situacao: 'RECUSADA', motivo: 'Substituída por outra proposta aceita.' }, { transaction });
-      await this.registrarHistorico(
-        {
-          propostaId: outra.id,
-          situacaoAnterior: 'ENVIADA',
-          situacaoNova: 'RECUSADA',
-          observacao: 'Substituída por outra proposta aceita.',
-          usuarioId,
-        },
-        transaction,
-      );
-    }
   }
 
   contarAtivas(imovelId: string, transaction?: Transaction) {
@@ -133,7 +120,8 @@ export class PropostaRepository {
     });
   }
 
-  atualizarSituacaoImovel(imovel: Imovel, situacao: string, transaction?: Transaction) {
-    return imovel.update({ situacao }, { transaction });
+  contarPorSituacao(imovelId: string, situacao: string, transaction?: Transaction) {
+    return Proposta.count({ where: { imovelId, situacao }, transaction });
   }
+
 }
