@@ -10,7 +10,13 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   const config = app.get(ConfigService);
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
-  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      hsts: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
   app.setGlobalPrefix('api/v1');
   app.enableCors({
     origin: config.getOrThrow<string>('FRONTEND_ORIGIN'),
