@@ -14,9 +14,14 @@ export const SEQUELIZE = Symbol('SEQUELIZE');
       provide: SEQUELIZE,
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const sequelize = new Sequelize(config.getOrThrow<string>('DATABASE_URL'), {
+        const url = config.getOrThrow<string>('DATABASE_URL');
+        const exigeSsl = /sslmode=require|ssl=true/.test(url);
+        const sequelize = new Sequelize(url, {
           dialect: 'postgres',
           logging: false,
+          dialectOptions: exigeSsl
+            ? { ssl: { require: true, rejectUnauthorized: false } }
+            : undefined,
         });
         initModels(sequelize);
         return sequelize;

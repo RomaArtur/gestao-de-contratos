@@ -1,4 +1,4 @@
-# Gestão Imobiliária
+# Sacramento Imóveis
 
 Sistema para o dia a dia de uma imobiliária: proprietários, imóveis, clientes, propostas e contratos. O acesso é por login, com os perfis de administrador e corretor. CPF e CNPJ ficam criptografados no banco.
 
@@ -35,3 +35,13 @@ npm run dev
 Abra `http://localhost:3000` e entre com esse administrador.
 
 Os testes da API rodam com `npm test` dentro de `backend`.
+
+## Deploy
+
+O site fica na Vercel, o banco no Neon e a API na VM. Copie `deploy.env.example` para `.env.prod`, coloque a connection string do Neon em `DATABASE_URL` e o endereço do site em `FRONTEND_ORIGIN`. Na VM, na raiz do projeto:
+
+```bash
+docker compose --env-file .env.prod -f docker-compose.api.yml up -d --build
+```
+
+A API fica na porta 3001. A primeira subida cria as tabelas e o administrador de `SEED_ADMIN_EMAIL`.
